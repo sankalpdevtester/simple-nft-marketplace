@@ -1,27 +1,27 @@
 import { ethers } from 'ethers';
-import { NFTMarketplace } from '../utils/constants';
+import { NFTMetadata } from './nftMetadata';
 
-const getNFTMintingContract = async () => {
-  const provider = new ethers.providers.JsonRpcProvider();
-  const contract = new ethers.Contract(NFTMarketplace, [
-    'function mintNFT(address owner, string name, string description, string image) public',
-  ], provider);
-  return contract;
+interface MintNFTParams {
+  name: string;
+  description: string;
+  image: string;
+}
+
+const createNFTMetadata = async (params: MintNFTParams) => {
+  const metadata = await NFTMetadata.createMetadata(params);
+  return metadata;
 };
 
-const getNFTMintingEvents = async () => {
-  const contract = await getNFTMintingContract();
-  const events = await contract.queryFilter('NFTMinted', {
-    fromBlock: 0,
-    toBlock: 'latest',
-  });
-  return events;
+const getNFTMetadata = async (tokenId: number) => {
+  const metadata = await NFTMetadata.getMetadata(tokenId);
+  return metadata;
 };
 
-const getNFTMintingEvent = async (eventId: string) => {
-  const events = await getNFTMintingEvents();
-  const event = events.find((event) => event.id === eventId);
-  return event;
+const validateNFTMetadata = (metadata: any) => {
+  if (!metadata.name || !metadata.description || !metadata.image) {
+    throw new Error('Invalid NFT metadata');
+  }
+  return metadata;
 };
 
-export { getNFTMintingContract, getNFTMintingEvents, getNFTMintingEvent };
+export { createNFTMetadata, getNFTMetadata, validateNFTMetadata };
