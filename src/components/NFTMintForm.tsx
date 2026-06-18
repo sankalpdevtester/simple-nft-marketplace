@@ -1,37 +1,47 @@
 import React, { useState } from 'react';
-import { useNFTMint } from '../hooks/useNFTMint';
+import { useNFTMinting } from '../hooks/useNFTMinting';
 
-const NFTMintForm = () => {
+interface NFTMintFormProps {
+  onMint: () => void;
+}
+
+const NFTMintForm: React.FC<NFTMintFormProps> = ({ onMint }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [image, setImage] = useState('');
-  const { mintNFT, minting, minted, error } = useNFTMint();
+  const { mintNFT, minting, error } = useNFTMinting();
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    mintNFT(name, description, image);
+  const handleMint = async () => {
+    try {
+      await mintNFT({ name, description, image });
+      onMint();
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <label>
-        Name:
-        <input type="text" value={name} onChange={(event) => setName(event.target.value)} />
-      </label>
-      <label>
-        Description:
-        <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
-      </label>
-      <label>
-        Image:
-        <input type="text" value={image} onChange={(event) => setImage(event.target.value)} />
-      </label>
-      <button type="submit" disabled={minting}>
-        {minting ? 'Minting...' : 'Mint NFT'}
-      </button>
-      {minted && <p>NFT minted successfully!</p>}
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-    </form>
+    <div>
+      <h2>Mint NFT</h2>
+      <form>
+        <label>
+          Name:
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <label>
+          Description:
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} />
+        </label>
+        <label>
+          Image:
+          <input type="file" onChange={(e) => setImage(e.target.files[0])} />
+        </label>
+        <button type="button" onClick={handleMint} disabled={minting}>
+          {minting ? 'Minting...' : 'Mint NFT'}
+        </button>
+        {error && <p style={{ color: 'red' }}>{error.message}</p>}
+      </form>
+    </div>
   );
 };
 
