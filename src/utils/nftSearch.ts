@@ -4,90 +4,71 @@ import { nftCache } from './nftCache';
 
 interface SearchParams {
   query: string;
-  sortBy: 'name' | 'price' | 'createdAt';
-  sortOrder: 'asc' | 'desc';
+  page: number;
   limit: number;
-  offset: number;
+  sortBy: string;
+  sortOrder: string;
 }
 
 const searchNFTs = async (params: SearchParams): Promise<NFT[]> => {
-  const cacheKey = `nft-search-${params.query}-${params.sortBy}-${params.sortOrder}-${params.limit}-${params.offset}`;
-  const cachedResult = await nftCache.get(cacheKey);
-  if (cachedResult) {
-    return cachedResult;
+  const { query, page, limit, sortBy, sortOrder } = params;
+  const cachedNFTs = await nftCache.getNFTs();
+
+  if (!cachedNFTs) {
+    const nfts = await nftMetadata.getNFTs();
+    await nftCache.setNFTs(nfts);
+    return searchNFTs(params);
   }
 
-  const nfts: NFT[] = await nftMetadata.getAllNFTs();
-  const filteredNFTs = nfts.filter((nft) => {
+  const filteredNFTs = cachedNFTs.filter((nft) => {
     const name = nft.name.toLowerCase();
     const description = nft.description.toLowerCase();
-    const query = params.query.toLowerCase();
-    return name.includes(query) || description.includes(query);
+    const queryLower = query.toLowerCase();
+
+    return name.includes(queryLower) || description.includes(queryLower);
   });
 
   const sortedNFTs = filteredNFTs.sort((a, b) => {
-    switch (params.sortBy) {
-      case 'name':
-        return params.sortOrder === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
-      case 'price':
-        return params.sortOrder === 'asc' ? a.price - b.price : b.price - a.price;
-      case 'createdAt':
-        return params.sortOrder === 'asc' ? a.createdAt - b.createdAt : b.createdAt - a.createdAt;
-      default:
-        throw new Error(`Invalid sort by: ${params.sortBy}`);
+    if (sortBy === 'name') {
+      if (sortOrder === 'asc') {
+        return a.name.localeCompare(b.name);
+      } else {
+        return b.name.localeCompare(a.name);
+      }
+    } else if (sortBy === 'price') {
+      if (sortOrder === 'asc') {
+        return a.price - b.price;
+      } else {
+        return b.price - a.price;
+      }
+    } else {
+      return 0;
     }
   });
 
-  const paginatedNFTs = sortedNFTs.slice(params.offset, params.offset + params.limit);
-  await nftCache.set(cacheKey, paginatedNFTs);
+  const paginatedNFTs = sortedNFTs.slice((page - 1) * limit, page * limit);
+
   return paginatedNFTs;
 };
 
-export { searchNFTs };
-```
-```typescript
-// example usage in src/components/NFTBuyForm.tsx
-import React, { useState, useEffect } from 'react';
-import { searchNFTs } from '../utils/nftSearch';
+const getNFTCount = async (query: string): Promise<number> => {
+  const cachedNFTs = await nftCache.getNFTs();
 
-const NFTBuyForm = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [nfts, setNFTs] = useState<NFT[]>([]);
-  const [loading, setLoading] = useState(false);
+  if (!cachedNFTs) {
+    const nfts = await nftMetadata.getNFTs();
+    await nftCache.setNFTs(nfts);
+    return getNFTCount(query);
+  }
 
-  const handleSearch = async () => {
-    setLoading(true);
-    const params: SearchParams = {
-      query: searchQuery,
-      sortBy: 'name',
-      sortOrder: 'asc',
-      limit: 10,
-      offset: 0,
-    };
-    const result = await searchNFTs(params);
-    setNFTs(result);
-    setLoading(false);
-  };
+  const filteredNFTs = cachedNFTs.filter((nft) => {
+    const name = nft.name.toLowerCase();
+    const description = nft.description.toLowerCase();
+    const queryLower = query.toLowerCase();
 
-  return (
-    <div>
-      <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-      <button onClick={handleSearch}>Search</button>
-      {loading ? (
-        <p>Loading...</p>
-      ) : (
-        <ul>
-          {nfts.map((nft) => (
-            <li key={nft.id}>
-              <h2>{nft.name}</h2>
-              <p>{nft.description}</p>
-              <p>Price: {nft.price}</p>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
+    return name.includes(queryLower) || description.includes(queryLower);
+  });
+
+  return filteredNFTs.length;
 };
 
-export default NFTBuyForm;
+export { searchNFTs, getNFTCount };
