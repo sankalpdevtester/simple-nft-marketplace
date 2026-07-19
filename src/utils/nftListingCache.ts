@@ -1,129 +1,54 @@
-import { NFT } from '../types/NFT';
+import { NFTListing } from '../types/NFTListing';
 import { cache } from 'memory-cache';
 
-const TTL = 60 * 1000; // 1 minute
+const NFT_LISTING_CACHE_TTL = 60 * 1000; // 1 minute
 
 interface NFTListingCache {
-  getNFTListing(nftId: string): NFT | null;
-  setNFTListing(nftId: string, nft: NFT): void;
+  getNFTListing(nftId: string): NFTListing | null;
+  setNFTListing(nftId: string, listing: NFTListing): void;
   clearNFTListing(nftId: string): void;
 }
 
 const nftListingCache: NFTListingCache = {
-  getNFTListing(nftId: string): NFT | null {
-    const cachedNFT = cache.get(`nft-listing-${nftId}`);
-    if (cachedNFT) {
-      return cachedNFT;
+  getNFTListing(nftId: string): NFTListing | null {
+    const cachedListing = cache.get(nftId);
+    if (cachedListing) {
+      return cachedListing;
     }
     return null;
   },
 
-  setNFTListing(nftId: string, nft: NFT): void {
-    cache.put(`nft-listing-${nftId}`, nft, TTL);
+  setNFTListing(nftId: string, listing: NFTListing): void {
+    cache.put(nftId, listing, NFT_LISTING_CACHE_TTL);
   },
 
   clearNFTListing(nftId: string): void {
-    cache.del(`nft-listing-${nftId}`);
+    cache.del(nftId);
   },
 };
 
-export default nftListingCache;
-
-// Example usage:
-// const nftListingCache = require('./nftListingCache');
-// const nft = { id: '123', name: 'My NFT' };
-// nftListingCache.setNFTListing('123', nft);
-// const cachedNFT = nftListingCache.getNFTListing('123');
-// console.log(cachedNFT); // { id: '123', name: 'My NFT' }
-```
-To integrate this new feature with the existing files, you can modify the `src/hooks/useNFTMinting.ts` file to use the `nftListingCache` when fetching NFT listings:
-```typescript
-import { useState, useEffect } from 'react';
-import { NFT } from '../types/NFT';
-import nftListingCache from '../utils/nftListingCache';
-
-const useNFTMinting = () => {
-  const [nftListings, setNftListings] = useState<NFT[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const fetchNFTListings = async () => {
-      setLoading(true);
-      const cachedNFTListings = nftListingCache.getNFTListing('all');
-      if (cachedNFTListings) {
-        setNftListings(cachedNFTListings);
-        setLoading(false);
-        return;
-      }
-
-      // Fetch NFT listings from the API
-      const response = await fetch('/api/nft-listings');
-      const nftListings = await response.json();
-      setNftListings(nftListings);
-      nftListingCache.setNFTListing('all', nftListings);
-      setLoading(false);
-    };
-
-    fetchNFTListings();
-  }, []);
-
-  return { nftListings, loading };
-};
-
-export default useNFTMinting;
-```
-Similarly, you can modify the `src/components/NFTBuyForm.tsx` file to use the `nftListingCache` when displaying NFT listings:
-```typescript
-import React from 'react';
-import { NFT } from '../types/NFT';
-import nftListingCache from '../utils/nftListingCache';
-
-const NFTBuyForm = () => {
-  const [nftListings, setNftListings] = useState<NFT[]>([]);
-  const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
-
-  useEffect(() => {
-    const fetchNFTListings = async () => {
-      const cachedNFTListings = nftListingCache.getNFTListing('all');
-      if (cachedNFTListings) {
-        setNftListings(cachedNFTListings);
-        return;
-      }
-
-      // Fetch NFT listings from the API
-      const response = await fetch('/api/nft-listings');
-      const nftListings = await response.json();
-      setNftListings(nftListings);
-      nftListingCache.setNFTListing('all', nftListings);
-    };
-
-    fetchNFTListings();
-  }, []);
-
-  const handleNFTSelection = (nft: NFT) => {
-    setSelectedNFT(nft);
+export const useNFTListingCache = () => {
+  const getNFTListing = async (nftId: string): Promise<NFTListing | null> => {
+    const cachedListing = nftListingCache.getNFTListing(nftId);
+    if (cachedListing) {
+      return cachedListing;
+    }
+    // If not cached, fetch from API and cache the result
+    const response = await fetch(`https://api.example.com/nft/${nftId}`);
+    const listing: NFTListing = await response.json();
+    nftListingCache.setNFTListing(nftId, listing);
+    return listing;
   };
 
-  return (
-    <div>
-      <h2>NFT Buy Form</h2>
-      <ul>
-        {nftListings.map((nft) => (
-          <li key={nft.id}>
-            <button onClick={() => handleNFTSelection(nft)}>
-              {nft.name}
-            </button>
-          </li>
-        ))}
-      </ul>
-      {selectedNFT && (
-        <div>
-          <h3>Selected NFT</h3>
-          <p>{selectedNFT.name}</p>
-        </div>
-      )}
-    </div>
-  );
+  const clearNFTListingCache = (nftId: string) => {
+    nftListingCache.clearNFTListing(nftId);
+  };
+
+  return { getNFTListing, clearNFTListingCache };
 };
 
-export default NFTBuyForm;
+// Example usage:
+// const { getNFTListing, clearNFTListingCache } = useNFTListingCache();
+// const listing = await getNFTListing('12345');
+// console.log(listing);
+// clearNFTListingCache('12345');
