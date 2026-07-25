@@ -1,74 +1,55 @@
 import { NFT } from '../types/NFT';
-import { nftMetadata } from './nftMetadata';
 import { nftCache } from './nftCache';
+import { nftMetadata } from './nftMetadata';
 
 interface SearchParams {
   query: string;
-  page: number;
+  sortBy: 'name' | 'price' | 'createdAt';
+  sortOrder: 'asc' | 'desc';
   limit: number;
-  sortBy: string;
-  sortOrder: string;
+  offset: number;
 }
 
 const searchNFTs = async (params: SearchParams): Promise<NFT[]> => {
-  const { query, page, limit, sortBy, sortOrder } = params;
   const cachedNFTs = await nftCache.getNFTs();
-
-  if (!cachedNFTs) {
-    const nfts = await nftMetadata.getNFTs();
-    await nftCache.setNFTs(nfts);
-    return searchNFTs(params);
-  }
-
   const filteredNFTs = cachedNFTs.filter((nft) => {
-    const name = nft.name.toLowerCase();
-    const description = nft.description.toLowerCase();
-    const queryLower = query.toLowerCase();
-
-    return name.includes(queryLower) || description.includes(queryLower);
+    const name = nft.metadata.name.toLowerCase();
+    const description = nft.metadata.description.toLowerCase();
+    const query = params.query.toLowerCase();
+    return name.includes(query) || description.includes(query);
   });
 
   const sortedNFTs = filteredNFTs.sort((a, b) => {
-    if (sortBy === 'name') {
-      if (sortOrder === 'asc') {
-        return a.name.localeCompare(b.name);
-      } else {
-        return b.name.localeCompare(a.name);
-      }
-    } else if (sortBy === 'price') {
-      if (sortOrder === 'asc') {
-        return a.price - b.price;
-      } else {
-        return b.price - a.price;
-      }
-    } else {
-      return 0;
+    switch (params.sortBy) {
+      case 'name':
+        return params.sortOrder === 'asc' ? a.metadata.name.localeCompare(b.metadata.name) : b.metadata.name.localeCompare(a.metadata.name);
+      case 'price':
+        return params.sortOrder === 'asc' ? a.price - b.price : b.price - a.price;
+      case 'createdAt':
+        return params.sortOrder === 'asc' ? a.createdAt - b.createdAt : b.createdAt - a.createdAt;
+      default:
+        throw new Error(`Invalid sort by: ${params.sortBy}`);
     }
   });
 
-  const paginatedNFTs = sortedNFTs.slice((page - 1) * limit, page * limit);
-
+  const paginatedNFTs = sortedNFTs.slice(params.offset, params.offset + params.limit);
   return paginatedNFTs;
 };
 
-const getNFTCount = async (query: string): Promise<number> => {
-  const cachedNFTs = await nftCache.getNFTs();
-
-  if (!cachedNFTs) {
-    const nfts = await nftMetadata.getNFTs();
-    await nftCache.setNFTs(nfts);
-    return getNFTCount(query);
+const getNFTMetadata = async (nftId: string): Promise<NFT> => {
+  const cachedNFT = await nftCache.getNFT(nftId);
+  if (cachedNFT) {
+    return cachedNFT;
   }
-
-  const filteredNFTs = cachedNFTs.filter((nft) => {
-    const name = nft.name.toLowerCase();
-    const description = nft.description.toLowerCase();
-    const queryLower = query.toLowerCase();
-
-    return name.includes(queryLower) || description.includes(queryLower);
-  });
-
-  return filteredNFTs.length;
+  const metadata = await nftMetadata.getNFTMetadata(nftId);
+  const nft: NFT = {
+    id: nftId,
+    metadata,
+    price: 0,
+    createdAt: 0,
+  };
+  await nftCache.cacheNFT(nft);
+  return nft;
 };
 
-export { searchNFTs, getNFTCount };
+export { searchNFTs, getNFTMetadata };
