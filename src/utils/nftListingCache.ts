@@ -1,54 +1,77 @@
 import { NFTListing } from '../types/NFTListing';
 import { cache } from 'memory-cache';
 
-const NFT_LISTING_CACHE_TTL = 60 * 1000; // 1 minute
+const cacheTTL = 60 * 1000; // 1 minute
 
-interface NFTListingCache {
-  getNFTListing(nftId: string): NFTListing | null;
-  setNFTListing(nftId: string, listing: NFTListing): void;
-  clearNFTListing(nftId: string): void;
-}
-
-const nftListingCache: NFTListingCache = {
-  getNFTListing(nftId: string): NFTListing | null {
-    const cachedListing = cache.get(nftId);
-    if (cachedListing) {
-      return cachedListing;
-    }
-    return null;
+const nftListingCache = {
+  get: (key: string): NFTListing[] | null => {
+    return cache.get(key);
   },
-
-  setNFTListing(nftId: string, listing: NFTListing): void {
-    cache.put(nftId, listing, NFT_LISTING_CACHE_TTL);
+  set: (key: string, value: NFTListing[]) => {
+    cache.put(key, value, cacheTTL);
   },
-
-  clearNFTListing(nftId: string): void {
-    cache.del(nftId);
+  del: (key: string) => {
+    cache.del(key);
   },
 };
 
-export const useNFTListingCache = () => {
-  const getNFTListing = async (nftId: string): Promise<NFTListing | null> => {
-    const cachedListing = nftListingCache.getNFTListing(nftId);
-    if (cachedListing) {
-      return cachedListing;
-    }
-    // If not cached, fetch from API and cache the result
-    const response = await fetch(`https://api.example.com/nft/${nftId}`);
-    const listing: NFTListing = await response.json();
-    nftListingCache.setNFTListing(nftId, listing);
-    return listing;
-  };
-
-  const clearNFTListingCache = (nftId: string) => {
-    nftListingCache.clearNFTListing(nftId);
-  };
-
-  return { getNFTListing, clearNFTListingCache };
+const getNFTListingsFromCache = async (contractAddress: string): Promise<NFTListing[] | null> => {
+  const cacheKey = `nft-listings-${contractAddress}`;
+  const cachedListings = nftListingCache.get(cacheKey);
+  if (cachedListings) {
+    return cachedListings;
+  }
+  return null;
 };
 
-// Example usage:
-// const { getNFTListing, clearNFTListingCache } = useNFTListingCache();
-// const listing = await getNFTListing('12345');
-// console.log(listing);
-// clearNFTListingCache('12345');
+const cacheNFTListings = async (contractAddress: string, listings: NFTListing[]) => {
+  const cacheKey = `nft-listings-${contractAddress}`;
+  nftListingCache.set(cacheKey, listings);
+};
+
+const invalidateNFTListingCache = async (contractAddress: string) => {
+  const cacheKey = `nft-listings-${contractAddress}`;
+  nftListingCache.del(cacheKey);
+};
+
+export {
+  getNFTListingsFromCache,
+  cacheNFTListings,
+  invalidateNFTListingCache,
+};
+``}
+
+const exampleUsage = async () => {
+  const contractAddress = '0x...';
+  const listings = await getNFTListingsFromCache(contractAddress);
+  if (!listings) {
+    // fetch listings from API or contract
+    const fetchedListings = await fetchNFTListingsFromAPI(contractAddress);
+    cacheNFTListings(contractAddress, fetchedListings);
+    return fetchedListings;
+  }
+  return listings;
+};
+
+const fetchNFTListingsFromAPI = async (contractAddress: string): Promise<NFTListing[]> => {
+  // implement API call to fetch NFT listings
+  // for demonstration purposes, return a mock response
+  return [
+    {
+      id: 1,
+      name: 'NFT 1',
+      description: 'This is NFT 1',
+      price: 1.0,
+      owner: '0x...',
+    },
+    {
+      id: 2,
+      name: 'NFT 2',
+      description: 'This is NFT 2',
+      price: 2.0,
+      owner: '0x...',
+    },
+  ];
+};
+
+export default exampleUsage;
