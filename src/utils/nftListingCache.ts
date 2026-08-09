@@ -1,77 +1,70 @@
-import { NFTListing } from '../types/NFTListing';
+import { NFT } from '../types/NFT';
 import { cache } from 'memory-cache';
 
 const cacheTTL = 60 * 1000; // 1 minute
 
-const nftListingCache = {
-  get: (key: string): NFTListing[] | null => {
-    return cache.get(key);
-  },
-  set: (key: string, value: NFTListing[]) => {
-    cache.put(key, value, cacheTTL);
-  },
-  del: (key: string) => {
-    cache.del(key);
-  },
-};
+interface NFTListingCache {
+  [key: string]: NFT[];
+}
 
-const getNFTListingsFromCache = async (contractAddress: string): Promise<NFTListing[] | null> => {
-  const cacheKey = `nft-listings-${contractAddress}`;
-  const cachedListings = nftListingCache.get(cacheKey);
+const nftListingCache: NFTListingCache = {};
+
+const getNFTListingsFromCache = (contractAddress: string): NFT[] | null => {
+  const cachedListings = cache.get(contractAddress);
   if (cachedListings) {
     return cachedListings;
   }
   return null;
 };
 
-const cacheNFTListings = async (contractAddress: string, listings: NFTListing[]) => {
-  const cacheKey = `nft-listings-${contractAddress}`;
-  nftListingCache.set(cacheKey, listings);
+const setNFTListingsInCache = (contractAddress: string, nftListings: NFT[]) => {
+  cache.put(contractAddress, nftListings, cacheTTL);
 };
 
-const invalidateNFTListingCache = async (contractAddress: string) => {
-  const cacheKey = `nft-listings-${contractAddress}`;
-  nftListingCache.del(cacheKey);
+const clearNFTListingsFromCache = (contractAddress: string) => {
+  cache.del(contractAddress);
 };
 
-export {
+const getNFTListingCache = () => {
+  return nftListingCache;
+};
+
+const updateNFTListingCache = (contractAddress: string, nftListings: NFT[]) => {
+  nftListingCache[contractAddress] = nftListings;
+};
+
+const NFTListingCacheUtils = {
   getNFTListingsFromCache,
-  cacheNFTListings,
-  invalidateNFTListingCache,
+  setNFTListingsInCache,
+  clearNFTListingsFromCache,
+  getNFTListingCache,
+  updateNFTListingCache,
 };
+
+export default NFTListingCacheUtils;
 ``}
 
-const exampleUsage = async () => {
-  const contractAddress = '0x...';
-  const listings = await getNFTListingsFromCache(contractAddress);
-  if (!listings) {
-    // fetch listings from API or contract
-    const fetchedListings = await fetchNFTListingsFromAPI(contractAddress);
-    cacheNFTListings(contractAddress, fetchedListings);
-    return fetchedListings;
-  }
-  return listings;
-};
-
-const fetchNFTListingsFromAPI = async (contractAddress: string): Promise<NFTListing[]> => {
-  // implement API call to fetch NFT listings
-  // for demonstration purposes, return a mock response
-  return [
+const exampleUsage = () => {
+  const contractAddress = '0x1234567890abcdef';
+  const nftListings: NFT[] = [
     {
       id: 1,
       name: 'NFT 1',
       description: 'This is NFT 1',
-      price: 1.0,
-      owner: '0x...',
+      image: 'https://example.com/nft1.png',
     },
     {
       id: 2,
       name: 'NFT 2',
       description: 'This is NFT 2',
-      price: 2.0,
-      owner: '0x...',
+      image: 'https://example.com/nft2.png',
     },
   ];
+
+  NFTListingCacheUtils.setNFTListingsInCache(contractAddress, nftListings);
+
+  const cachedListings = NFTListingCacheUtils.getNFTListingsFromCache(contractAddress);
+  console.log(cachedListings);
 };
 
-export default exampleUsage;
+exampleUsage();
