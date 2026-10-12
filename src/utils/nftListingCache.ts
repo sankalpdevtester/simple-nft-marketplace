@@ -42,29 +42,3 @@ const NFTListingCacheUtils = {
 };
 
 export default NFTListingCacheUtils;
-``}
-
-const exampleUsage = () => {
-  const contractAddress = '0x1234567890abcdef';
-  const nftListings: NFT[] = [
-    {
-      id: 1,
-      name: 'NFT 1',
-      description: 'This is NFT 1',
-      image: 'https://example.com/nft1.png',
-    },
-    {
-      id: 2,
-      name: 'NFT 2',
-      description: 'This is NFT 2',
-      image: 'https://example.com/nft2.png',
-    },
-  ];
-
-  NFTListingCacheUtils.setNFTListingsInCache(contractAddress, nftListings);
-
-  const cachedListings = NFTListingCacheUtils.getNFTListingsFromCache(contractAddress);
-  console.log(cachedListings);
-};
-
-exampleUsage();
